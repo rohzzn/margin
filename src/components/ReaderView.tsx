@@ -92,12 +92,12 @@ const THEME_STYLES: Record<
     highlight: 'rgba(235, 176, 85, 0.42)',
   },
   midnight: {
-    canvas: '#121518',
-    surface: '#181d21',
-    text: '#eef0ef',
-    accent: '#7ad8c7',
-    selection: 'rgba(122, 216, 199, 0.24)',
-    highlight: 'rgba(83, 187, 164, 0.45)',
+    canvas: '#07111f',
+    surface: '#0d1728',
+    text: '#e7edf7',
+    accent: '#8ec5ff',
+    selection: 'rgba(142, 197, 255, 0.22)',
+    highlight: 'rgba(96, 154, 255, 0.34)',
   },
 }
 

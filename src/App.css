@@ -379,6 +379,13 @@
     linear-gradient(180deg, var(--reader-canvas), color-mix(in srgb, var(--reader-canvas), #000 6%));
 }
 
+.reader-theme-midnight {
+  background:
+    radial-gradient(circle at top left, rgba(92, 130, 255, 0.16), transparent 24%),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 22%),
+    linear-gradient(180deg, #07111f, #0a1322 58%, #040913);
+}
+
 .reader-topbar,
 .reader-footer,
 .selection-bar,
@@ -386,6 +393,87 @@
 .viewport-shell {
   background: color-mix(in srgb, var(--reader-surface), rgba(255, 255, 255, 0.14));
   border-color: color-mix(in srgb, var(--reader-text), transparent 88%);
+}
+
+.reader-theme-midnight .reader-topbar,
+.reader-theme-midnight .selection-bar,
+.reader-theme-midnight .reader-panel,
+.reader-theme-midnight .viewport-shell {
+  background: linear-gradient(180deg, rgba(10, 18, 33, 0.92), rgba(8, 14, 28, 0.88));
+  border-color: rgba(148, 163, 184, 0.14);
+  box-shadow: 0 22px 70px rgba(2, 6, 23, 0.42);
+}
+
+.reader-theme-midnight .reader-book-subtitle,
+.reader-theme-midnight .empty-copy,
+.reader-theme-midnight .panel-heading span,
+.reader-theme-midnight .notes-heading-row span,
+.reader-theme-midnight .settings-label span {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.reader-theme-midnight .button-ghost {
+  background: rgba(15, 23, 42, 0.82);
+  color: #e7edf7;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.reader-theme-midnight .button-ghost:hover {
+  border-color: rgba(148, 163, 225, 0.3);
+  background: rgba(17, 27, 48, 0.9);
+}
+
+.reader-theme-midnight .button-primary {
+  background: linear-gradient(180deg, #8ec5ff, #6faaf6);
+  color: #08111d;
+  box-shadow: 0 18px 35px rgba(59, 130, 246, 0.2);
+}
+
+.reader-theme-midnight .panel-tabs {
+  border-bottom-color: rgba(148, 163, 184, 0.12);
+}
+
+.reader-theme-midnight .panel-tab-active,
+.reader-theme-midnight .choice-chip-active {
+  background: rgba(96, 154, 255, 0.18);
+  border-color: rgba(142, 197, 255, 0.34);
+}
+
+.reader-theme-midnight .toc-item,
+.reader-theme-midnight .search-result,
+.reader-theme-midnight .note-main,
+.reader-theme-midnight .note-card {
+  background: rgba(15, 23, 42, 0.76);
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+.reader-theme-midnight .search-input {
+  background: rgba(15, 23, 42, 0.78);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #e7edf7;
+}
+
+.reader-theme-midnight .search-input::placeholder {
+  color: rgba(203, 213, 225, 0.54);
+}
+
+.reader-theme-midnight .choice-chip {
+  background: rgba(12, 19, 34, 0.65);
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+.reader-theme-midnight .book-author,
+.reader-theme-midnight .search-result-label,
+.reader-theme-midnight .note-meta,
+.reader-theme-midnight .reader-status-row,
+.reader-theme-midnight .reader-status-row span {
+  color: rgba(203, 213, 225, 0.74);
+}
+
+.reader-theme-midnight .reader-status-row span,
+.reader-theme-midnight .note-meta,
+.reader-theme-midnight .search-result-label {
+  background: rgba(15, 23, 42, 0.76);
 }
 
 .reader-topbar {
@@ -679,6 +767,10 @@
   background: var(--reader-surface);
 }
 
+.reader-theme-midnight .reader-viewport iframe {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
 .reader-viewport-loading {
   opacity: 0.68;
 }
@@ -719,6 +811,14 @@
   background: linear-gradient(270deg, rgba(255, 255, 255, 0.44), transparent);
 }
 
+.reader-theme-midnight .nav-hitbox-left {
+  background: linear-gradient(90deg, rgba(8, 14, 28, 0.72), transparent);
+}
+
+.reader-theme-midnight .nav-hitbox-right {
+  background: linear-gradient(270deg, rgba(8, 14, 28, 0.72), transparent);
+}
+
 .nav-hitbox:focus-visible {
   outline: none;
 }
@@ -740,11 +840,24 @@
     border-color 180ms ease;
 }
 
+.reader-theme-midnight .nav-chip {
+  background: rgba(15, 23, 42, 0.92);
+  color: #e7edf7;
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.44);
+}
+
 .nav-hitbox:hover .nav-chip,
 .nav-hitbox:focus-visible .nav-chip {
   transform: scale(1.04);
   border-color: rgba(31, 26, 22, 0.14);
   background: rgba(255, 252, 246, 0.96);
+}
+
+.reader-theme-midnight .nav-hitbox:hover .nav-chip,
+.reader-theme-midnight .nav-hitbox:focus-visible .nav-chip {
+  border-color: rgba(142, 197, 255, 0.32);
+  background: rgba(20, 31, 56, 0.98);
 }
 
 .reader-overlay {
@@ -756,6 +869,10 @@
   text-align: center;
   border-radius: 24px;
   background: rgba(255, 252, 246, 0.82);
+}
+
+.reader-theme-midnight .reader-overlay {
+  background: rgba(8, 14, 28, 0.84);
 }
 
 .reader-overlay-error {
