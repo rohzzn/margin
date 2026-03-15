@@ -1026,9 +1026,13 @@ export function ReaderView({
             <button
               type="button"
               className="nav-hitbox nav-hitbox-left"
+              aria-label="Previous page"
               onClick={() => void renditionRef.current?.prev()}
             >
-              Previous
+              <span className="sr-only">Previous page</span>
+              <span aria-hidden="true" className="nav-chip">
+                {'<'}
+              </span>
             </button>
             <div
               ref={viewportRef}
@@ -1037,9 +1041,13 @@ export function ReaderView({
             <button
               type="button"
               className="nav-hitbox nav-hitbox-right"
+              aria-label="Next page"
               onClick={() => void renditionRef.current?.next()}
             >
-              Next
+              <span className="sr-only">Next page</span>
+              <span aria-hidden="true" className="nav-chip">
+                {'>'}
+              </span>
             </button>
 
             {isLoading ? (
