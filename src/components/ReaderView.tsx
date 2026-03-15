@@ -42,16 +42,26 @@ interface ReaderViewProps {
   ) => void
 }
 
-type PanelTab = 'toc' | 'search' | 'notes' | 'display'
+type PanelTab = 'toc' | 'search' | 'lookup' | 'notes' | 'display'
 
 type SelectionState = {
   cfiRange: string
   text: string
 }
 
+type DictionaryResult = {
+  word: string
+  phonetic?: string
+  meanings: Array<{
+    partOfSpeech: string
+    definitions: string[]
+  }>
+}
+
 const PANEL_LABELS: Record<PanelTab, string> = {
   toc: 'TOC',
   search: 'Search',
+  lookup: 'Lookup',
   notes: 'Saved',
   display: 'View',
 }
@@ -124,6 +134,53 @@ const READER_FONT_STYLESHEET =
 
 function highlightSelectionColor(theme: ReaderTheme) {
   return THEME_STYLES[theme].highlight
+}
+
+function normalizeLookupTerm(value: string) {
+  const trimmed = value.trim().replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '')
+
+  if (!trimmed || /\s/.test(trimmed)) {
+    return ''
+  }
+
+  return trimmed.toLowerCase()
+}
+
+function parseDictionaryResult(payload: unknown): DictionaryResult | null {
+  if (!Array.isArray(payload) || !payload.length) {
+    return null
+  }
+
+  const entry = payload[0] as {
+    word?: string
+    phonetic?: string
+    meanings?: Array<{
+      partOfSpeech?: string
+      definitions?: Array<{ definition?: string }>
+    }>
+  }
+
+  const meanings =
+    entry.meanings
+      ?.map((meaning) => ({
+        partOfSpeech: meaning.partOfSpeech ?? 'Meaning',
+        definitions:
+          meaning.definitions
+            ?.map((definition) => definition.definition?.trim())
+            .filter((definition): definition is string => Boolean(definition))
+            .slice(0, 3) ?? [],
+      }))
+      .filter((meaning) => meaning.definitions.length) ?? []
+
+  if (!entry.word || !meanings.length) {
+    return null
+  }
+
+  return {
+    word: entry.word,
+    phonetic: entry.phonetic,
+    meanings: meanings.slice(0, 3),
+  }
 }
 
 function applyReaderStyle(rendition: Rendition, settings: ReaderSettings) {
@@ -224,6 +281,10 @@ export function ReaderView({
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [lookupQuery, setLookupQuery] = useState('')
+  const [lookupResult, setLookupResult] = useState<DictionaryResult | null>(null)
+  const [lookupError, setLookupError] = useState<string | null>(null)
+  const [isLookingUp, setIsLookingUp] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const themeStyle = THEME_STYLES[settings.theme]
@@ -243,6 +304,7 @@ export function ReaderView({
   ]
     .filter(Boolean)
     .join(' • ')
+  const selectedLookupTerm = normalizeLookupTerm(selection?.text ?? '')
   const currentBookmark = useMemo(
     () => book.bookmarks.find((entry) => entry.cfi === location?.start.cfi),
     [book.bookmarks, location?.start.cfi],
@@ -299,6 +361,46 @@ export function ReaderView({
       onUpdateBook(book.id, updater)
     },
   )
+
+  const runLookup = async (rawTerm: string) => {
+    const term = normalizeLookupTerm(rawTerm)
+    setPanelOpen(true)
+    setPanelTab('lookup')
+    setLookupQuery(term || rawTerm.trim())
+
+    if (!term) {
+      setLookupResult(null)
+      setLookupError('Select a single word to look it up.')
+      return
+    }
+
+    setIsLookingUp(true)
+    setLookupError(null)
+
+    try {
+      const response = await fetch(
+        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`,
+      )
+
+      if (!response.ok) {
+        throw new Error('No definition found.')
+      }
+
+      const payload = (await response.json()) as unknown
+      const parsed = parseDictionaryResult(payload)
+
+      if (!parsed) {
+        throw new Error('No definition found.')
+      }
+
+      setLookupResult(parsed)
+    } catch (error) {
+      setLookupResult(null)
+      setLookupError(error instanceof Error ? error.message : 'Lookup failed.')
+    } finally {
+      setIsLookingUp(false)
+    }
+  }
 
   useEffect(() => {
     const syncFullscreen = () => {
@@ -610,6 +712,10 @@ export function ReaderView({
     }
   }
 
+  const submitLookup = async () => {
+    await runLookup(lookupQuery)
+  }
+
   const toggleBookmark = () => {
     const currentCfi = location?.start.cfi
     if (!currentCfi) {
@@ -736,7 +842,7 @@ export function ReaderView({
       <div className="reader-main">
         <aside className={`reader-panel${panelOpen ? ' reader-panel-open' : ''}`}>
           <div className="panel-tabs">
-            {(['toc', 'search', 'notes', 'display'] as PanelTab[]).map((tab) => (
+            {(['toc', 'search', 'lookup', 'notes', 'display'] as PanelTab[]).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -814,6 +920,72 @@ export function ReaderView({
                     <p className="empty-copy">No matches.</p>
                   ) : null}
                 </div>
+              </div>
+            ) : null}
+
+            {panelTab === 'lookup' ? (
+              <div className="panel-section">
+                <div className="panel-heading">
+                  <h2>Lookup</h2>
+                </div>
+                <form
+                  className="search-form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void submitLookup()
+                  }}
+                >
+                  <input
+                    value={lookupQuery}
+                    onChange={(event) => {
+                      setLookupQuery(event.target.value)
+                      if (lookupError) {
+                        setLookupError(null)
+                      }
+                    }}
+                    className="search-input"
+                    placeholder="Look up a word"
+                  />
+                  <button type="submit" className="button button-primary">
+                    {isLookingUp ? 'Loading...' : 'Go'}
+                  </button>
+                </form>
+
+                {lookupResult ? (
+                  <div className="lookup-card">
+                    <div className="lookup-head">
+                      <h3>{lookupResult.word}</h3>
+                      {lookupResult.phonetic ? (
+                        <span>{lookupResult.phonetic}</span>
+                      ) : null}
+                    </div>
+                    <div className="lookup-list">
+                      {lookupResult.meanings.map((meaning) => (
+                        <article
+                          key={`${lookupResult.word}-${meaning.partOfSpeech}`}
+                          className="lookup-meaning"
+                        >
+                          <p className="lookup-part">{meaning.partOfSpeech}</p>
+                          <ul className="lookup-definitions">
+                            {meaning.definitions.map((definition) => (
+                              <li key={definition}>{definition}</li>
+                            ))}
+                          </ul>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {!lookupResult && lookupError ? (
+                  <p className="empty-copy">{lookupError}</p>
+                ) : null}
+
+                {!lookupResult && !lookupError && !isLookingUp ? (
+                  <p className="empty-copy">
+                    Select a single word, then tap Lookup.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -1063,6 +1235,19 @@ export function ReaderView({
                 >
                   Save
                 </button>
+                {selectedLookupTerm ? (
+                  <button
+                    type="button"
+                    className="button button-ghost"
+                    onClick={() => {
+                      void runLookup(selectedLookupTerm)
+                      selectedContentsRef.current?.window.getSelection?.()?.removeAllRanges()
+                      setSelection(null)
+                    }}
+                  >
+                    Lookup
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="button button-ghost"

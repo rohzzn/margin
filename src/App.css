@@ -501,7 +501,9 @@
 .reader-theme-midnight .toc-item,
 .reader-theme-midnight .search-result,
 .reader-theme-midnight .note-main,
-.reader-theme-midnight .note-card {
+.reader-theme-midnight .note-card,
+.reader-theme-midnight .lookup-card,
+.reader-theme-midnight .lookup-meaning {
   background: rgba(15, 23, 42, 0.76);
   border-color: rgba(148, 163, 184, 0.12);
 }
@@ -584,7 +586,7 @@
 }
 
 .reader-panel-open {
-  inline-size: min(340px, 88vw);
+  inline-size: min(380px, 88vw);
   opacity: 1;
   display: flex;
   flex-direction: column;
@@ -592,18 +594,30 @@
 
 .panel-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   padding: 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--reader-text), transparent 90%);
 }
 
 .panel-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 38px;
   border: 0;
   border-radius: 999px;
-  padding: 0.7rem 0.75rem;
+  padding: 0.65rem 0.45rem;
   background: transparent;
   color: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .panel-tab-active {
@@ -714,6 +728,54 @@
 
 .note-card .button {
   align-self: flex-end;
+}
+
+.lookup-card,
+.lookup-meaning {
+  border-radius: 22px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--reader-surface), rgba(255, 255, 255, 0.08));
+  border: 1px solid color-mix(in srgb, var(--reader-text), transparent 92%);
+}
+
+.lookup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lookup-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.lookup-head h3,
+.lookup-part {
+  margin: 0;
+}
+
+.lookup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lookup-part {
+  font-size: 0.88rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--reader-text), transparent 32%);
+}
+
+.lookup-definitions {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .note-quote {
@@ -990,6 +1052,10 @@ mark {
 
   .metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .panel-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .book-card {
