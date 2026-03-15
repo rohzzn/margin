@@ -30,6 +30,7 @@ interface ReaderViewProps {
   file: Blob | null
   settings: ReaderSettings
   onClose: () => void
+  onRecordActivity: (activity: { minutes?: number; pages?: number }) => void
   onUpdateBook: (
     bookId: string,
     updater: (currentBook: BookRecord) => BookRecord,
@@ -193,6 +194,7 @@ export function ReaderView({
   file,
   settings,
   onClose,
+  onRecordActivity,
   onUpdateBook,
   onSettingsChange,
 }: ReaderViewProps) {
@@ -203,6 +205,7 @@ export function ReaderView({
   const renditionRef = useRef<Rendition | null>(null)
   const appliedHighlightsRef = useRef<HighlightEntry[]>([])
   const selectedContentsRef = useRef<Contents | null>(null)
+  const lastLocationRef = useRef<number | null>(null)
   const bookSnapshotRef = useRef({
     currentCfi: book.currentCfi,
     locations: book.locations,
@@ -255,6 +258,21 @@ export function ReaderView({
   }
 
   const updateLocation = useEffectEvent((nextLocation: RenditionLocation) => {
+    const nextPageLocation =
+      typeof nextLocation.start.location === 'number'
+        ? nextLocation.start.location
+        : null
+    const previousPageLocation = lastLocationRef.current
+
+    if (previousPageLocation !== null && nextPageLocation !== null) {
+      const delta = nextPageLocation - previousPageLocation
+
+      if (delta > 0) {
+        recordActivity({ pages: delta })
+      }
+    }
+
+    lastLocationRef.current = nextPageLocation
     setLocation(nextLocation)
     setChapterLabel(chapterLabelForHref(tocEntries, nextLocation.start.href))
 
@@ -270,6 +288,10 @@ export function ReaderView({
 
   const applyCurrentStyle = useEffectEvent((rendition: Rendition) => {
     applyReaderStyle(rendition, settings)
+  })
+
+  const recordActivity = useEffectEvent((activity: { minutes?: number; pages?: number }) => {
+    onRecordActivity(activity)
   })
 
   const persistBookUpdate = useEffectEvent(
@@ -396,6 +418,10 @@ export function ReaderView({
           addHighlightAnnotation(rendition, highlight)
         }
 
+        lastLocationRef.current =
+          typeof rendition.location?.start?.location === 'number'
+            ? rendition.location.start.location
+            : null
         appliedHighlightsRef.current = initialHighlights
         setIsLoading(false)
 
@@ -431,6 +457,7 @@ export function ReaderView({
       setSelection(null)
       appliedHighlightsRef.current = []
       selectedContentsRef.current = null
+      lastLocationRef.current = null
       renditionRef.current?.destroy()
       bookRef.current?.destroy()
       renditionRef.current = null
@@ -541,6 +568,24 @@ export function ReaderView({
       window.removeEventListener('keydown', handleKeyboardShortcuts)
     }
   }, [])
+
+  useEffect(() => {
+    if (isLoading || loadError) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
+
+      recordActivity({ minutes: 1 })
+    }, 60_000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [book.id, isLoading, loadError])
 
   const submitSearch = async () => {
     if (!bookRef.current) {

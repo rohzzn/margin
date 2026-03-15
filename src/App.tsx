@@ -1,16 +1,24 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import './App.css'
 import { LibraryView } from './components/LibraryView'
+import { recordReadingAnalytics } from './lib/stats'
 import {
   deleteBookFile,
   loadBookFile,
   loadLibrary,
+  loadReadingAnalytics,
   loadReaderSettings,
   saveBookFile,
+  saveReadingAnalytics,
   saveLibrary,
   saveReaderSettings,
 } from './lib/storage'
-import type { BookRecord, ImportedBookMetadata, ReaderSettings } from './types'
+import type {
+  BookRecord,
+  ImportedBookMetadata,
+  ReaderSettings,
+  ReadingAnalytics,
+} from './types'
 
 const ReaderView = lazy(async () => {
   const module = await import('./components/ReaderView')
@@ -64,6 +72,9 @@ function mergeBookRecord(
 function App() {
   const [books, setBooks] = useState<BookRecord[]>(() => loadLibrary())
   const [settings, setSettings] = useState<ReaderSettings>(() => loadReaderSettings())
+  const [analytics, setAnalytics] = useState<ReadingAnalytics>(() =>
+    loadReadingAnalytics(),
+  )
   const [activeBookId, setActiveBookId] = useState<string | null>(null)
   const [activeFile, setActiveFile] = useState<Blob | null>(null)
   const [isImporting, setIsImporting] = useState(false)
@@ -80,6 +91,10 @@ function App() {
   useEffect(() => {
     saveReaderSettings(settings)
   }, [settings])
+
+  useEffect(() => {
+    saveReadingAnalytics(analytics)
+  }, [analytics])
 
   useEffect(() => {
     if (!activeBookId) {
@@ -193,6 +208,12 @@ function App() {
     )
   }
 
+  const recordReadingActivity = (activity: { minutes?: number; pages?: number }) => {
+    setAnalytics((currentAnalytics) =>
+      recordReadingAnalytics(currentAnalytics, activity),
+    )
+  }
+
   return (
     <div className="app-shell">
       {activeBook ? (
@@ -202,6 +223,7 @@ function App() {
             file={activeFile}
             settings={settings}
             onClose={() => setActiveBookId(null)}
+            onRecordActivity={recordReadingActivity}
             onUpdateBook={updateBook}
             onSettingsChange={updateSettings}
           />
@@ -209,6 +231,7 @@ function App() {
       ) : (
         <LibraryView
           books={books}
+          analytics={analytics}
           isImporting={isImporting}
           importError={importError}
           onImport={handleImport}

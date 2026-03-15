@@ -174,13 +174,16 @@
 }
 
 .metric-value {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
   font-size: clamp(2.2rem, 6vw, 3.4rem);
   line-height: 1;
+  font-weight: 700;
 }
 
 .metric-label {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
   color: rgba(31, 26, 22, 0.62);
+  font-weight: 600;
 }
 
 .import-card {

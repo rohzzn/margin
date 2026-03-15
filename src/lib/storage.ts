@@ -1,8 +1,10 @@
 import { createStore, del, get, set } from 'idb-keyval'
-import type { BookRecord, ReaderSettings } from '../types'
+import { createEmptyAnalytics } from './stats'
+import type { BookRecord, ReaderSettings, ReadingAnalytics } from '../types'
 
 const LIBRARY_KEY = 'margin.library.v1'
 const SETTINGS_KEY = 'margin.settings.v1'
+const ANALYTICS_KEY = 'margin.analytics.v1'
 const BOOK_FILE_PREFIX = 'book:'
 const bookStore = createStore('margin-reader', 'epub-files')
 
@@ -68,6 +70,32 @@ export function saveReaderSettings(settings: ReaderSettings) {
   }
 
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+}
+
+export function loadReadingAnalytics(): ReadingAnalytics {
+  if (typeof window === 'undefined') {
+    return createEmptyAnalytics()
+  }
+
+  try {
+    const raw = window.localStorage.getItem(ANALYTICS_KEY)
+    if (!raw) {
+      return createEmptyAnalytics()
+    }
+
+    const parsed = JSON.parse(raw) as ReadingAnalytics
+    return parsed?.daily ? parsed : createEmptyAnalytics()
+  } catch {
+    return createEmptyAnalytics()
+  }
+}
+
+export function saveReadingAnalytics(analytics: ReadingAnalytics) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(ANALYTICS_KEY, JSON.stringify(analytics))
 }
 
 export async function saveBookFile(bookId: string, file: Blob) {

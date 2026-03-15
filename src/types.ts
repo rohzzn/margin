@@ -79,3 +79,12 @@ export interface ImportedBookMetadata {
   language?: string
   identifier?: string
 }
+
+export interface ReadingAnalyticsDay {
+  minutes: number
+  pages: number
+}
+
+export interface ReadingAnalytics {
+  daily: Record<string, ReadingAnalyticsDay>
+}

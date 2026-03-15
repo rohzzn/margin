@@ -1,8 +1,15 @@
 import { useRef, useState, type CSSProperties } from 'react'
-import type { BookRecord } from '../types'
+import {
+  formatMinutesCompact,
+  getCurrentStreak,
+  getPagesToday,
+  getTotalMinutesRead,
+} from '../lib/stats'
+import type { BookRecord, ReadingAnalytics } from '../types'
 
 interface LibraryViewProps {
   books: BookRecord[]
+  analytics: ReadingAnalytics
   isImporting: boolean
   importError?: string | null
   onImport: (files: File[]) => void
@@ -12,6 +19,7 @@ interface LibraryViewProps {
 
 export function LibraryView({
   books,
+  analytics,
   isImporting,
   importError,
   onImport,
@@ -27,8 +35,9 @@ export function LibraryView({
     return new Date(rightScore).getTime() - new Date(leftScore).getTime()
   })
 
-  const activeReaders = books.filter((book) => book.progress > 0.01).length
-  const totalBookmarks = books.reduce((total, book) => total + book.bookmarks.length, 0)
+  const streak = getCurrentStreak(analytics)
+  const totalMinutesRead = getTotalMinutesRead(analytics)
+  const pagesToday = getPagesToday(analytics)
   const totalHighlights = books.reduce((total, book) => total + book.highlights.length, 0)
 
   const handleFiles = (fileList: FileList | null) => {
@@ -51,16 +60,18 @@ export function LibraryView({
         <div className="hero-panel-copy">
           <div className="metric-grid">
             <article className="metric-card">
-              <span className="metric-value">{books.length}</span>
-              <span className="metric-label">Books</span>
+              <span className="metric-value">{streak}</span>
+              <span className="metric-label">Streak</span>
             </article>
             <article className="metric-card">
-              <span className="metric-value">{activeReaders}</span>
-              <span className="metric-label">Reading</span>
+              <span className="metric-value">
+                {formatMinutesCompact(totalMinutesRead)}
+              </span>
+              <span className="metric-label">Time read</span>
             </article>
             <article className="metric-card">
-              <span className="metric-value">{totalBookmarks}</span>
-              <span className="metric-label">Bookmarks</span>
+              <span className="metric-value">{pagesToday}</span>
+              <span className="metric-label">Pages today</span>
             </article>
             <article className="metric-card">
               <span className="metric-value">{totalHighlights}</span>
