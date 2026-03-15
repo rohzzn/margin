@@ -1,7 +1,13 @@
 export type ReaderTheme = 'linen' | 'mist' | 'sepia' | 'midnight'
 export type ReaderFlow = 'paginated' | 'scrolled-doc'
 export type ReaderSpread = 'auto' | 'none'
-export type ReaderFont = 'serif' | 'sans' | 'mono'
+export type ReaderFont =
+  | 'serif'
+  | 'sans'
+  | 'mono'
+  | 'poppins'
+  | 'sf'
+  | 'literata'
 
 export interface ReaderSettings {
   theme: ReaderTheme

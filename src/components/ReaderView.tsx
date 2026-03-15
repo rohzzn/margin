@@ -105,13 +105,22 @@ const FONT_STACKS = {
   serif: '"Palatino Linotype", "Book Antiqua", Georgia, serif',
   sans: '"Trebuchet MS", "Avenir Next", Arial, sans-serif',
   mono: 'Consolas, "Courier New", monospace',
+  poppins: '"Poppins", "Avenir Next", Arial, sans-serif',
+  sf: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif',
+  literata: '"Literata", Georgia, serif',
 } as const
 
 const FONT_LABELS = {
   serif: 'Book',
   sans: 'Grotesk',
   mono: 'Mono',
+  poppins: 'Poppins',
+  sf: 'SF',
+  literata: 'Literata',
 } as const
+
+const READER_FONT_STYLESHEET =
+  'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap'
 
 function highlightSelectionColor(theme: ReaderTheme) {
   return THEME_STYLES[theme].highlight
@@ -346,6 +355,9 @@ export function ReaderView({
         })
 
         renditionRef.current = rendition
+        rendition.hooks.content.register((contents: Contents) =>
+          contents.addStylesheet(READER_FONT_STYLESHEET),
+        )
         applyCurrentStyle(rendition)
 
         rendition.on('relocated', (nextLocation: RenditionLocation) => {
