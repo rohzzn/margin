@@ -27,6 +27,9 @@
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 999px;
   padding: 0.8rem 1.1rem;
@@ -99,10 +102,6 @@
 }
 
 .library-header {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 24px;
-  align-items: end;
   margin-bottom: 28px;
 }
 
@@ -202,6 +201,11 @@
   font-size: clamp(1.8rem, 4vw, 3.2rem);
 }
 
+.import-card h2 {
+  max-width: 10ch;
+  line-height: 1;
+}
+
 .import-card-active {
   transform: translateY(-2px);
   border-color: rgba(181, 107, 47, 0.48);
@@ -273,24 +277,56 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
 }
 
 .book-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.book-title-wrap {
+  position: relative;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  overflow: hidden;
+  min-width: 0;
+  contain: paint;
 }
 
 .book-title {
   margin: 0;
+  display: block;
+  max-inline-size: 100%;
   font-size: 1.15rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
-.book-author,
+.book-title-marquee {
+  display: inline-block;
+  min-width: max-content;
+  max-width: none;
+  will-change: transform;
+  animation: shelf-title-marquee var(--title-scroll-duration, 8s)
+    ease-in-out infinite alternate;
+}
+
+.book-author {
+  margin: 0;
+  color: rgba(31, 26, 22, 0.64);
+}
+
 .reader-book-subtitle {
   margin: 0;
   color: rgba(31, 26, 22, 0.64);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .book-progress,
@@ -314,25 +350,31 @@
   background: linear-gradient(90deg, #b56b2f, #d9a463);
 }
 
+@keyframes shelf-title-marquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(var(--title-scroll-distance, 0));
+  }
+}
+
 .book-progress-meta,
-.book-badges,
-.reader-status-row,
 .note-meta,
 .search-result-label {
   font-size: 0.9rem;
   color: rgba(31, 26, 22, 0.62);
 }
 
-.book-progress-meta,
-.book-badges {
+.book-progress-meta {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.book-badges span,
-.reader-status-row span,
 .note-meta,
 .search-result-label {
   display: inline-flex;
@@ -346,7 +388,21 @@
 .book-actions {
   margin-top: auto;
   display: flex;
+  align-items: center;
   gap: 10px;
+  padding-top: 6px;
+}
+
+.book-actions .button {
+  min-width: 0;
+}
+
+.book-actions .button-primary {
+  flex: 1 1 auto;
+}
+
+.book-actions .button-ghost {
+  flex: 0 0 auto;
 }
 
 .empty-state {
@@ -465,12 +521,10 @@
 .reader-theme-midnight .book-author,
 .reader-theme-midnight .search-result-label,
 .reader-theme-midnight .note-meta,
-.reader-theme-midnight .reader-status-row,
-.reader-theme-midnight .reader-status-row span {
+.reader-theme-midnight .reader-book-subtitle {
   color: rgba(203, 213, 225, 0.74);
 }
 
-.reader-theme-midnight .reader-status-row span,
 .reader-theme-midnight .note-meta,
 .reader-theme-midnight .search-result-label {
   background: rgba(15, 23, 42, 0.76);
@@ -733,12 +787,6 @@
   display: none;
 }
 
-.reader-status-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .viewport-shell {
   position: relative;
   flex: 1 1 auto;
@@ -952,6 +1000,14 @@ mark {
   .reader-topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .book-actions {
+    display: flex;
+  }
+
+  .book-actions .button {
+    width: 100%;
   }
 
   .reader-topbar {

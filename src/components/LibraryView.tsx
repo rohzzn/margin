@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react'
-import { formatFileSize, formatRelativeTime } from '../lib/format'
+import { useRef, useState, type CSSProperties } from 'react'
 import type { BookRecord } from '../types'
 
 interface LibraryViewProps {
@@ -45,10 +44,7 @@ export function LibraryView({
   return (
     <div className="library-shell">
       <header className="library-header">
-        <div>
-          <h1>Margin Reader</h1>
-        </div>
-        <p className="hero-copy">Import, read, search, and keep your place.</p>
+        <h1>Margin Reader</h1>
       </header>
 
       <section className="hero-panel">
@@ -104,8 +100,7 @@ export function LibraryView({
             onChange={(event) => handleFiles(event.target.files)}
           />
           <p className="eyebrow">Import</p>
-          <h2>Drop EPUB files here</h2>
-          <p className="muted-copy">Local only. No account.</p>
+          <h2>Start with EPUBs</h2>
           <div className="import-actions">
             <button
               type="button"
@@ -131,7 +126,19 @@ export function LibraryView({
           <div className="book-grid">
             {sortedBooks.map((book) => {
               const progress = Math.round(book.progress * 100)
-              const savedCount = book.bookmarks.length + book.highlights.length
+              const shouldScrollTitle = book.title.length > 20
+              const titleStyle = shouldScrollTitle
+                ? ({
+                    '--title-scroll-distance': `-${Math.min(
+                      Math.max(book.title.length - 18, 4) * 0.42,
+                      18,
+                    )}ch`,
+                    '--title-scroll-duration': `${Math.max(
+                      7,
+                      book.title.length * 0.28,
+                    )}s`,
+                  } as CSSProperties)
+                : undefined
 
               return (
                 <article key={book.id} className="book-card">
@@ -155,7 +162,16 @@ export function LibraryView({
 
                   <div className="book-card-body">
                     <div className="book-meta">
-                      <p className="book-title">{book.title}</p>
+                      <div className="book-title-wrap" title={book.title}>
+                        <p
+                          className={`book-title${
+                            shouldScrollTitle ? ' book-title-marquee' : ''
+                          }`}
+                          style={titleStyle}
+                        >
+                          {book.title}
+                        </p>
+                      </div>
                       <p className="book-author">{book.author}</p>
                     </div>
 
@@ -168,13 +184,7 @@ export function LibraryView({
                       </div>
                       <div className="book-progress-meta">
                         <span>{progress}% read</span>
-                        <span>{formatRelativeTime(book.lastOpenedAt ?? book.addedAt)}</span>
                       </div>
-                    </div>
-
-                    <div className="book-badges">
-                      <span>{formatFileSize(book.fileSize)}</span>
-                      <span>{savedCount} saved</span>
                     </div>
 
                     <div className="book-actions">

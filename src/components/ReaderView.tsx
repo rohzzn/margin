@@ -16,7 +16,6 @@ import {
   flattenToc,
   searchBook,
 } from '../lib/epub'
-import { formatFileSize } from '../lib/format'
 import type {
   BookRecord,
   HighlightEntry,
@@ -234,6 +233,13 @@ export function ReaderView({
   const currentProgress = Math.round(
     ((location?.start.percentage ?? book.progress) || 0) * 100,
   )
+  const readerSubtitle = [
+    `${currentProgress}%`,
+    chapterLabel || book.author,
+    isIndexing ? 'Indexing...' : null,
+  ]
+    .filter(Boolean)
+    .join(' • ')
   const currentBookmark = useMemo(
     () => book.bookmarks.find((entry) => entry.cfi === location?.start.cfi),
     [book.bookmarks, location?.start.cfi],
@@ -654,9 +660,7 @@ export function ReaderView({
           </button>
           <div className="reader-book-headline">
             <p className="reader-book-title">{book.title}</p>
-            <p className="reader-book-subtitle">
-              {chapterLabel || book.author}
-            </p>
+            <p className="reader-book-subtitle">{readerSubtitle}</p>
           </div>
         </div>
 
@@ -1027,12 +1031,6 @@ export function ReaderView({
               </div>
             </div>
           ) : null}
-
-          <div className="reader-status-row">
-            <span>{currentProgress}%</span>
-            <span>{formatFileSize(book.fileSize)}</span>
-            {isIndexing ? <span>Indexing for navigation...</span> : null}
-          </div>
 
           <div className="viewport-shell">
             <button
