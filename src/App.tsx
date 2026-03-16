@@ -1,15 +1,14 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import './App.css'
 import { LibraryView } from './components/LibraryView'
+import { fetchPublicBookDetails } from './lib/standardEbooks'
 import { recordReadingAnalytics, recordTimedReadingAnalytics } from './lib/stats'
 import {
   deleteBookFile,
-  hasSeededDefaultBooks,
   loadBookFile,
   loadLibrary,
   loadReadingAnalytics,
   loadReaderSettings,
-  markDefaultBooksSeeded,
   saveBookFile,
   saveReadingAnalytics,
   saveLibrary,
@@ -18,6 +17,7 @@ import {
 import type {
   BookRecord,
   ImportedBookMetadata,
+  PublicCatalogBook,
   ReaderSettings,
   ReadingAnalytics,
 } from './types'
@@ -31,33 +31,6 @@ const MOBILE_MEDIA_QUERIES = [
   '(max-width: 720px)',
   '((pointer: coarse) and (max-width: 1100px))',
 ]
-
-const DEFAULT_BOOK_SOURCES = [
-  {
-    id: 'default-pride-and-prejudice',
-    title: 'Pride and Prejudice',
-    author: 'Jane Austen',
-    identifier: 'https://www.gutenberg.org/ebooks/1342',
-    fileName: 'pride-and-prejudice.epub',
-    url: '/default-books/pride-and-prejudice.epub',
-  },
-  {
-    id: 'default-dracula',
-    title: 'Dracula',
-    author: 'Bram Stoker',
-    identifier: 'https://www.gutenberg.org/ebooks/345',
-    fileName: 'dracula.epub',
-    url: '/default-books/dracula.epub',
-  },
-  {
-    id: 'default-alice-in-wonderland',
-    title: "Alice's Adventures in Wonderland",
-    author: 'Lewis Carroll',
-    identifier: 'https://www.gutenberg.org/ebooks/11',
-    fileName: 'alice-in-wonderland.epub',
-    url: '/default-books/alice-in-wonderland.epub',
-  },
-] as const
 
 function isMobileOnlyViewport() {
   if (typeof window === 'undefined') {
@@ -111,6 +84,20 @@ function mergeBookRecord(
   }
 }
 
+async function isReadableEpubBlob(file: Blob) {
+  if (!file.size) {
+    return false
+  }
+
+  const signature = new Uint8Array(await file.slice(0, 4).arrayBuffer())
+  return (
+    signature[0] === 0x50 &&
+    signature[1] === 0x4b &&
+    signature[2] === 0x03 &&
+    signature[3] === 0x04
+  )
+}
+
 function App() {
   const [books, setBooks] = useState<BookRecord[]>(() => loadLibrary())
   const [settings, setSettings] = useState<ReaderSettings>(() => loadReaderSettings())
@@ -122,11 +109,17 @@ function App() {
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isMobileLocked, setIsMobileLocked] = useState(() => isMobileOnlyViewport())
-  const [isSeedingDefaults, setIsSeedingDefaults] = useState(false)
+  const [publicImportBookId, setPublicImportBookId] = useState<string | null>(null)
+  const [publicImportError, setPublicImportError] = useState<string | null>(null)
 
   const activeBook = activeBookId
     ? books.find((book) => book.id === activeBookId) ?? null
     : null
+  const publicBookIdsByIdentifier = new Map(
+    books
+      .filter((book) => book.identifier)
+      .map((book) => [book.identifier as string, book.id]),
+  )
 
   useEffect(() => {
     saveLibrary(books)
@@ -183,83 +176,6 @@ function App() {
     }
   }, [])
 
-  useEffect(() => {
-    if (books.length || hasSeededDefaultBooks()) {
-      return
-    }
-
-    let cancelled = false
-
-    const seedDefaultBooks = async () => {
-      setIsSeedingDefaults(true)
-
-      try {
-        const { readEpubMetadata } = await import('./lib/epub')
-        const seededBooks: BookRecord[] = []
-        const seededAt = Date.now()
-
-        for (const [index, source] of DEFAULT_BOOK_SOURCES.entries()) {
-          const response = await fetch(source.url)
-
-          if (!response.ok) {
-            continue
-          }
-
-          const blob = await response.blob()
-          const file = new File([blob], source.fileName, {
-            type: 'application/epub+zip',
-          })
-
-          const metadata = await readEpubMetadata(file).catch<ImportedBookMetadata>(() => ({
-            title: source.title,
-            author: source.author,
-            identifier: source.identifier,
-          }))
-
-          if (cancelled) {
-            return
-          }
-
-          await saveBookFile(source.id, file)
-
-          seededBooks.push({
-            id: source.id,
-            title: metadata.title || source.title,
-            author: metadata.author || source.author,
-            description: metadata.description,
-            coverUrl: metadata.coverUrl,
-            language: metadata.language,
-            identifier: metadata.identifier || source.identifier,
-            fileName: source.fileName,
-            fileSize: file.size,
-            addedAt: new Date(seededAt - index * 60_000).toISOString(),
-            lastOpenedAt: new Date(seededAt - index * 60_000).toISOString(),
-            progress: 0,
-            bookmarks: [],
-            highlights: [],
-          })
-        }
-
-        if (cancelled || !seededBooks.length) {
-          return
-        }
-
-        setBooks((currentBooks) => (currentBooks.length ? currentBooks : seededBooks))
-        markDefaultBooksSeeded()
-      } finally {
-        if (!cancelled) {
-          setIsSeedingDefaults(false)
-        }
-      }
-    }
-
-    void seedDefaultBooks()
-
-    return () => {
-      cancelled = true
-    }
-  }, [books.length])
-
   const handleImport = async (files: File[]) => {
     if (!files.length) {
       return
@@ -267,6 +183,7 @@ function App() {
 
     setIsImporting(true)
     setImportError(null)
+    setPublicImportError(null)
 
     const { readEpubMetadata } = await import('./lib/epub')
     const failures: string[] = []
@@ -305,6 +222,84 @@ function App() {
     }
 
     setIsImporting(false)
+  }
+
+  const handleImportPublicBook = async (publicBook: PublicCatalogBook) => {
+    const existingBookId = publicBookIdsByIdentifier.get(publicBook.pageUrl)
+    if (existingBookId) {
+      const existingFile = await loadBookFile(existingBookId)
+
+      if (existingFile && (await isReadableEpubBlob(existingFile))) {
+        setPublicImportError(null)
+        setActiveBookId(existingBookId)
+        return
+      }
+    }
+
+    setPublicImportBookId(publicBook.id)
+    setPublicImportError(null)
+    setImportError(null)
+
+    try {
+      const resolvedPublicBook = publicBook.downloadUrl
+        ? publicBook
+        : await fetchPublicBookDetails(publicBook.pageUrl)
+
+      if (!resolvedPublicBook.downloadUrl) {
+        throw new Error('Missing download URL.')
+      }
+
+      const response = await fetch(resolvedPublicBook.downloadUrl)
+      if (!response.ok) {
+        throw new Error(`Book download failed (${response.status}).`)
+      }
+
+      const blob = await response.blob()
+      if (!(await isReadableEpubBlob(blob))) {
+        throw new Error('Downloaded file was not a valid EPUB.')
+      }
+
+      const fileName =
+        decodeURIComponent(
+          new URL(resolvedPublicBook.downloadUrl).pathname.split('/').pop() ?? '',
+        ) || `${resolvedPublicBook.title}.epub`
+      const file = new File([blob], fileName, {
+        type: 'application/epub+zip',
+      })
+      const { readEpubMetadata } = await import('./lib/epub')
+      const parsedMetadata = await readEpubMetadata(file).catch<ImportedBookMetadata>(
+        () => ({
+          title: resolvedPublicBook.title,
+          author: resolvedPublicBook.author,
+          description: resolvedPublicBook.description,
+          coverUrl: resolvedPublicBook.coverUrl,
+          language: resolvedPublicBook.language,
+          identifier: resolvedPublicBook.pageUrl,
+        }),
+      )
+      const metadata: ImportedBookMetadata = {
+        title: parsedMetadata.title || resolvedPublicBook.title,
+        author: parsedMetadata.author || resolvedPublicBook.author,
+        description: parsedMetadata.description || resolvedPublicBook.description,
+        coverUrl: parsedMetadata.coverUrl || resolvedPublicBook.coverUrl,
+        language: parsedMetadata.language || resolvedPublicBook.language,
+        identifier: resolvedPublicBook.pageUrl,
+      }
+      const existingBook = findExistingBook(books, file, metadata.identifier)
+      const mergedBook = mergeBookRecord(existingBook, file, metadata)
+
+      await saveBookFile(mergedBook.id, file)
+      setBooks((currentBooks) =>
+        existingBook
+          ? currentBooks.map((book) => (book.id === mergedBook.id ? mergedBook : book))
+          : [mergedBook, ...currentBooks],
+      )
+      setActiveBookId(mergedBook.id)
+    } catch {
+      setPublicImportError(`Could not load "${publicBook.title}" from the public shelf.`)
+    } finally {
+      setPublicImportBookId(null)
+    }
   }
 
   const handleDeleteBook = async (bookId: string) => {
@@ -378,8 +373,6 @@ function App() {
             </p>
           </section>
         </main>
-      ) : isSeedingDefaults && !books.length ? (
-        <div className="reader-loading-screen">Preparing your starter shelf...</div>
       ) : activeBook ? (
         <Suspense fallback={<div className="reader-loading-screen">Loading reader...</div>}>
           <ReaderView
@@ -396,9 +389,15 @@ function App() {
         <LibraryView
           books={books}
           analytics={analytics}
-          isImporting={isImporting || isSeedingDefaults}
+          isImporting={isImporting}
           importError={importError}
+          publicImportBookId={publicImportBookId}
+          publicImportError={publicImportError}
+          publicBookIdsByIdentifier={publicBookIdsByIdentifier}
           onImport={handleImport}
+          onImportPublicBook={(book) => {
+            void handleImportPublicBook(book)
+          }}
           onOpen={setActiveBookId}
           onDelete={(bookId) => {
             void handleDeleteBook(bookId)

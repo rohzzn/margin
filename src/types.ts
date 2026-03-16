@@ -80,6 +80,31 @@ export interface ImportedBookMetadata {
   identifier?: string
 }
 
+export type PublicCatalogSort =
+  | 'relevance'
+  | 'popularity'
+  | 'newest'
+  | 'author-alpha'
+  | 'reading-ease'
+  | 'length'
+
+export interface PublicCatalogBook {
+  id: string
+  title: string
+  author: string
+  coverUrl: string
+  pageUrl: string
+  description?: string
+  language?: string
+  subjects: string[]
+  downloadUrl?: string
+}
+
+export interface PublicCatalogPage {
+  books: PublicCatalogBook[]
+  nextPageUrl: string | null
+}
+
 export interface ReadingAnalyticsDay {
   minutes: number
   pages: number

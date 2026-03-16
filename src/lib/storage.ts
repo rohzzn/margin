@@ -5,7 +5,6 @@ import type { BookRecord, ReaderSettings, ReadingAnalytics } from '../types'
 const LIBRARY_KEY = 'margin.library.v1'
 const SETTINGS_KEY = 'margin.settings.v1'
 const ANALYTICS_KEY = 'margin.analytics.v1'
-const DEFAULT_BOOKS_KEY = 'margin.default-books.v1'
 const BOOK_FILE_PREFIX = 'book:'
 const bookStore = createStore('margin-reader', 'epub-files')
 
@@ -71,22 +70,6 @@ export function saveReaderSettings(settings: ReaderSettings) {
   }
 
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
-}
-
-export function hasSeededDefaultBooks() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.localStorage.getItem(DEFAULT_BOOKS_KEY) === 'true'
-}
-
-export function markDefaultBooksSeeded() {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(DEFAULT_BOOKS_KEY, 'true')
 }
 
 export function loadReadingAnalytics(): ReadingAnalytics {
