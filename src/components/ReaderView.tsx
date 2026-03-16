@@ -138,6 +138,9 @@ const FONT_LABELS = {
 const READER_FONT_STYLESHEET =
   'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap'
 
+const POMODORO_DURATION = 25 * 60
+const POMODORO_CLICK_DELAY_MS = 220
+
 function highlightSelectionColor(theme: ReaderTheme) {
   return THEME_STYLES[theme].highlight
 }
@@ -187,6 +190,14 @@ function parseDictionaryResult(payload: unknown): DictionaryResult | null {
     phonetic: entry.phonetic,
     meanings: meanings.slice(0, 3),
   }
+}
+
+function formatPomodoroTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const seconds = safeSeconds % 60
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function applyReaderStyle(rendition: Rendition, settings: ReaderSettings) {
@@ -270,6 +281,8 @@ export function ReaderView({
   const selectedContentsRef = useRef<Contents | null>(null)
   const lastLocationRef = useRef<number | null>(null)
   const readingSessionStartedAtRef = useRef<number | null>(null)
+  const pomodoroEndAtRef = useRef<number | null>(null)
+  const pomodoroClickTimeoutRef = useRef<number | null>(null)
   const bookSnapshotRef = useRef({
     currentCfi: book.currentCfi,
     locations: book.locations,
@@ -292,6 +305,8 @@ export function ReaderView({
   const [lookupResult, setLookupResult] = useState<DictionaryResult | null>(null)
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [isLookingUp, setIsLookingUp] = useState(false)
+  const [pomodoroSecondsLeft, setPomodoroSecondsLeft] = useState(POMODORO_DURATION)
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const themeStyle = THEME_STYLES[settings.theme]
@@ -363,6 +378,25 @@ export function ReaderView({
     onRecordActivity(activity)
   })
 
+  const syncPomodoro = useEffectEvent(() => {
+    const endAt = pomodoroEndAtRef.current
+
+    if (!endAt) {
+      return
+    }
+
+    const nextSecondsLeft = Math.max(0, Math.ceil((endAt - Date.now()) / 1000))
+
+    if (nextSecondsLeft > 0) {
+      setPomodoroSecondsLeft(nextSecondsLeft)
+      return
+    }
+
+    pomodoroEndAtRef.current = null
+    setIsPomodoroRunning(false)
+    setPomodoroSecondsLeft(POMODORO_DURATION)
+  })
+
   const flushReadingTime = useEffectEvent((endedAt = Date.now()) => {
     const startedAt = readingSessionStartedAtRef.current
 
@@ -377,6 +411,52 @@ export function ReaderView({
     })
     readingSessionStartedAtRef.current = endedAt
   })
+
+  const togglePomodoro = () => {
+    if (isPomodoroRunning) {
+      const endAt = pomodoroEndAtRef.current
+
+      if (endAt) {
+        const nextSecondsLeft = Math.max(0, Math.ceil((endAt - Date.now()) / 1000))
+        setPomodoroSecondsLeft(nextSecondsLeft || POMODORO_DURATION)
+      }
+
+      pomodoroEndAtRef.current = null
+      setIsPomodoroRunning(false)
+      return
+    }
+
+    const nextDuration = pomodoroSecondsLeft > 0 ? pomodoroSecondsLeft : POMODORO_DURATION
+    setPomodoroSecondsLeft(nextDuration)
+    pomodoroEndAtRef.current = Date.now() + nextDuration * 1000
+    setIsPomodoroRunning(true)
+  }
+
+  const resetPomodoro = () => {
+    pomodoroEndAtRef.current = null
+    setIsPomodoroRunning(false)
+    setPomodoroSecondsLeft(POMODORO_DURATION)
+  }
+
+  const handlePomodoroClick = () => {
+    if (pomodoroClickTimeoutRef.current !== null) {
+      window.clearTimeout(pomodoroClickTimeoutRef.current)
+    }
+
+    pomodoroClickTimeoutRef.current = window.setTimeout(() => {
+      pomodoroClickTimeoutRef.current = null
+      togglePomodoro()
+    }, POMODORO_CLICK_DELAY_MS)
+  }
+
+  const handlePomodoroDoubleClick = () => {
+    if (pomodoroClickTimeoutRef.current !== null) {
+      window.clearTimeout(pomodoroClickTimeoutRef.current)
+      pomodoroClickTimeoutRef.current = null
+    }
+
+    resetPomodoro()
+  }
 
   const persistBookUpdate = useEffectEvent(
     (updater: (currentBook: BookRecord) => BookRecord) => {
@@ -738,6 +818,30 @@ export function ReaderView({
     }
   }, [book.id, isLoading, loadError])
 
+  useEffect(() => {
+    if (!isPomodoroRunning) {
+      return
+    }
+
+    syncPomodoro()
+
+    const intervalId = window.setInterval(() => {
+      syncPomodoro()
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isPomodoroRunning])
+
+  useEffect(() => {
+    return () => {
+      if (pomodoroClickTimeoutRef.current !== null) {
+        window.clearTimeout(pomodoroClickTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const submitSearch = async () => {
     if (!bookRef.current) {
       return
@@ -864,7 +968,25 @@ export function ReaderView({
           </div>
         </div>
 
-        <div className="reader-topbar-group">
+        <div className="reader-topbar-group reader-topbar-actions">
+          <button
+            type="button"
+            className={`pomodoro-inline${isPomodoroRunning ? ' pomodoro-inline-running' : ''}`}
+            onClick={handlePomodoroClick}
+            onDoubleClick={handlePomodoroDoubleClick}
+            title={
+              isPomodoroRunning
+                ? 'Click to pause. Double-click to reset to 25:00.'
+                : 'Click to start. Double-click to reset to 25:00.'
+            }
+            aria-label={`Pomodoro ${formatPomodoroTime(
+              pomodoroSecondsLeft,
+            )}. ${
+              isPomodoroRunning ? 'Running, click to pause.' : 'Paused, click to start.'
+            } Double-click to reset to 25 minutes.`}
+          >
+            {formatPomodoroTime(pomodoroSecondsLeft)}
+          </button>
           <button
             type="button"
             className="button button-ghost"

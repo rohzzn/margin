@@ -102,6 +102,10 @@
 }
 
 .library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
   margin-bottom: 28px;
 }
 
@@ -122,6 +126,88 @@
   max-width: 34rem;
   font-size: 1.06rem;
   color: rgba(31, 26, 22, 0.72);
+}
+
+.library-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(31, 26, 22, 0.06);
+  box-shadow: 0 12px 30px rgba(31, 26, 22, 0.05);
+}
+
+.library-clock-label {
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(31, 26, 22, 0.48);
+}
+
+.library-clock-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.library-clock-time {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.library-weather {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #51606c;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.library-weather svg {
+  inline-size: 1.08rem;
+  block-size: 1.08rem;
+}
+
+.library-weather[data-condition='clear'][data-day='day'] {
+  color: #c7861c;
+}
+
+.library-weather[data-condition='clear'][data-day='night'] {
+  color: #546c9b;
+}
+
+.library-weather[data-condition='partly-cloudy'] {
+  color: #6c7885;
+}
+
+.library-weather[data-condition='cloudy'] {
+  color: #5f6873;
+}
+
+.library-weather[data-condition='fog'] {
+  color: #8b806f;
+}
+
+.library-weather[data-condition='rain'] {
+  color: #3f7399;
+}
+
+.library-weather[data-condition='snow'] {
+  color: #5d86a5;
+}
+
+.library-weather[data-condition='thunder'] {
+  color: #9d7a18;
 }
 
 .hero-panel {
@@ -540,6 +626,7 @@
   padding: 14px 16px;
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   align-items: center;
 }
@@ -549,6 +636,17 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+
+.reader-topbar-group:first-child {
+  flex: 1 1 320px;
+}
+
+.reader-topbar-actions {
+  margin-left: auto;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .reader-book-headline {
@@ -561,6 +659,51 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pomodoro-inline {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--reader-text), transparent 24%);
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.pomodoro-inline:hover,
+.pomodoro-inline:focus-visible {
+  color: var(--reader-text);
+  outline: none;
+}
+
+.pomodoro-inline-running {
+  color: var(--reader-accent);
+}
+
+.reader-topbar-actions .pomodoro-inline {
+  margin-right: 10px;
+}
+
+.reader-theme-midnight .pomodoro-inline {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.reader-theme-midnight .pomodoro-inline:hover,
+.reader-theme-midnight .pomodoro-inline:focus-visible {
+  color: #e7edf7;
+}
+
+.reader-theme-midnight .pomodoro-inline-running {
+  color: #8ec5ff;
 }
 
 .reader-main {
@@ -1000,10 +1143,13 @@ mark {
 }
 
 @media (max-width: 1100px) {
-  .library-header,
   .hero-panel,
   .book-grid {
     grid-template-columns: 1fr;
+  }
+
+  .library-header {
+    align-items: flex-start;
   }
 
   .reader-main {
@@ -1071,6 +1217,19 @@ mark {
     align-items: stretch;
   }
 
+  .library-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .library-clock {
+    align-items: flex-start;
+  }
+
+  .library-clock-main {
+    justify-content: flex-start;
+  }
+
   .book-actions {
     display: flex;
   }
@@ -1086,6 +1245,11 @@ mark {
   .reader-topbar-group {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .reader-topbar-actions {
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .reader-shell {

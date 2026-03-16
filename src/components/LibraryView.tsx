@@ -1,10 +1,19 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { WeatherIcon } from './WeatherIcon'
 import {
   formatMinutesCompact,
   getCurrentStreak,
   getPagesToday,
   getTotalMinutesRead,
 } from '../lib/stats'
+import {
+  WEATHER_CACHE_TTL_MS,
+  cacheWeather,
+  fetchCurrentWeather,
+  getCurrentPosition,
+  readCachedWeather,
+  type WeatherSnapshot,
+} from '../lib/weather'
 import type { BookRecord, ReadingAnalytics } from '../types'
 
 interface LibraryViewProps {
@@ -15,6 +24,21 @@ interface LibraryViewProps {
   onImport: (files: File[]) => void
   onOpen: (bookId: string) => void
   onDelete: (bookId: string) => void
+}
+
+function formatLibraryTime(value: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(value)
+}
+
+function formatLibraryDate(value: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(value)
 }
 
 export function LibraryView({
@@ -28,6 +52,8 @@ export function LibraryView({
 }: LibraryViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+  const [weather, setWeather] = useState<WeatherSnapshot | null>(null)
 
   const sortedBooks = [...books].sort((left, right) => {
     const leftScore = left.lastOpenedAt ?? left.addedAt
@@ -39,6 +65,77 @@ export function LibraryView({
   const totalMinutesRead = getTotalMinutesRead(analytics)
   const pagesToday = getPagesToday(analytics)
   const totalHighlights = books.reduce((total, book) => total + book.highlights.length, 0)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      return
+    }
+
+    let cancelled = false
+    let intervalId = 0
+
+    const refreshWeather = async () => {
+      try {
+        const position = await getCurrentPosition()
+
+        if (cancelled) {
+          return
+        }
+
+        const { latitude, longitude } = position.coords
+        const cachedWeather = readCachedWeather(latitude, longitude)
+
+        if (cachedWeather) {
+          setWeather(cachedWeather)
+          return
+        }
+
+        const nextWeather = await fetchCurrentWeather(latitude, longitude)
+
+        if (cancelled) {
+          return
+        }
+
+        cacheWeather(nextWeather, latitude, longitude)
+        setWeather(nextWeather)
+      } catch (error) {
+        const errorCode =
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          typeof error.code === 'number'
+            ? error.code
+            : null
+
+        if (errorCode === 1) {
+          window.clearInterval(intervalId)
+        }
+
+        // Keep the header clean when location or weather is unavailable.
+      }
+    }
+
+    void refreshWeather()
+
+    intervalId = window.setInterval(() => {
+      void refreshWeather()
+    }, WEATHER_CACHE_TTL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [])
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList?.length) {
@@ -54,6 +151,27 @@ export function LibraryView({
     <div className="library-shell">
       <header className="library-header">
         <h1>Margin Reader</h1>
+        <div className="library-clock" aria-live="polite">
+          <span className="library-clock-label">{formatLibraryDate(now)}</span>
+          <div className="library-clock-main">
+            <span className="library-clock-time">{formatLibraryTime(now)}</span>
+            {weather ? (
+              <span
+                className="library-weather"
+                data-condition={weather.condition}
+                data-day={weather.isDay ? 'day' : 'night'}
+                role="img"
+                aria-label={weather.label}
+                title={weather.label}
+              >
+                <WeatherIcon
+                  condition={weather.condition}
+                  isDay={weather.isDay}
+                />
+              </span>
+            ) : null}
+          </div>
+        </div>
       </header>
 
       <section className="hero-panel">
