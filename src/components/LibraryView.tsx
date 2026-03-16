@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { WeatherIcon } from './WeatherIcon'
 import {
   formatMinutesCompact,
@@ -26,6 +32,23 @@ interface LibraryViewProps {
   onDelete: (bookId: string) => void
 }
 
+interface BookCoverParallaxState {
+  currentRotateX: number
+  currentRotateY: number
+  currentShiftX: number
+  currentShiftY: number
+  targetRotateX: number
+  targetRotateY: number
+  targetShiftX: number
+  targetShiftY: number
+  frameId: number | null
+}
+
+const bookCoverParallaxStates = new WeakMap<
+  HTMLButtonElement,
+  BookCoverParallaxState
+>()
+
 function formatLibraryTime(value: Date) {
   return new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
@@ -39,6 +62,140 @@ function formatLibraryDate(value: Date) {
     month: 'short',
     day: 'numeric',
   }).format(value)
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function syncBookCoverParallax(
+  button: HTMLButtonElement,
+  state: BookCoverParallaxState,
+) {
+  button.style.setProperty('--cover-rotate-x', `${state.currentRotateX.toFixed(2)}deg`)
+  button.style.setProperty('--cover-rotate-y', `${state.currentRotateY.toFixed(2)}deg`)
+  button.style.setProperty('--cover-shift-x', `${state.currentShiftX.toFixed(2)}px`)
+  button.style.setProperty('--cover-shift-y', `${state.currentShiftY.toFixed(2)}px`)
+}
+
+function getBookCoverParallaxState(button: HTMLButtonElement) {
+  const existingState = bookCoverParallaxStates.get(button)
+
+  if (existingState) {
+    return existingState
+  }
+
+  const nextState: BookCoverParallaxState = {
+    currentRotateX: 0,
+    currentRotateY: 0,
+    currentShiftX: 0,
+    currentShiftY: 0,
+    targetRotateX: 0,
+    targetRotateY: 0,
+    targetShiftX: 0,
+    targetShiftY: 0,
+    frameId: null,
+  }
+
+  bookCoverParallaxStates.set(button, nextState)
+  return nextState
+}
+
+function animateBookCoverParallax(button: HTMLButtonElement) {
+  const state = bookCoverParallaxStates.get(button)
+
+  if (!state) {
+    return
+  }
+
+  const easing = 0.16
+
+  state.currentRotateX += (state.targetRotateX - state.currentRotateX) * easing
+  state.currentRotateY += (state.targetRotateY - state.currentRotateY) * easing
+  state.currentShiftX += (state.targetShiftX - state.currentShiftX) * easing
+  state.currentShiftY += (state.targetShiftY - state.currentShiftY) * easing
+
+  syncBookCoverParallax(button, state)
+
+  const isSettled =
+    Math.abs(state.targetRotateX - state.currentRotateX) < 0.08 &&
+    Math.abs(state.targetRotateY - state.currentRotateY) < 0.08 &&
+    Math.abs(state.targetShiftX - state.currentShiftX) < 0.08 &&
+    Math.abs(state.targetShiftY - state.currentShiftY) < 0.08
+
+  if (isSettled) {
+    state.currentRotateX = state.targetRotateX
+    state.currentRotateY = state.targetRotateY
+    state.currentShiftX = state.targetShiftX
+    state.currentShiftY = state.targetShiftY
+    syncBookCoverParallax(button, state)
+    state.frameId = null
+    return
+  }
+
+  state.frameId = window.requestAnimationFrame(() => {
+    animateBookCoverParallax(button)
+  })
+}
+
+function queueBookCoverParallax(button: HTMLButtonElement) {
+  const state = getBookCoverParallaxState(button)
+
+  if (state.frameId !== null) {
+    return
+  }
+
+  state.frameId = window.requestAnimationFrame(() => {
+    animateBookCoverParallax(button)
+  })
+}
+
+function updateBookCoverParallax(event: ReactPointerEvent<HTMLButtonElement>) {
+  if (event.pointerType === 'touch' || prefersReducedMotion()) {
+    return
+  }
+
+  const button = event.currentTarget
+  const bounds = button.getBoundingClientRect()
+
+  if (!bounds.width || !bounds.height) {
+    return
+  }
+
+  const horizontalRatio = (event.clientX - bounds.left) / bounds.width - 0.5
+  const verticalRatio = (event.clientY - bounds.top) / bounds.height - 0.5
+  const state = getBookCoverParallaxState(button)
+
+  state.targetRotateX = -verticalRatio * 5.5
+  state.targetRotateY = horizontalRatio * 7
+  state.targetShiftX = horizontalRatio * 4
+  state.targetShiftY = verticalRatio * 4
+
+  queueBookCoverParallax(button)
+}
+
+function resetBookCoverParallax(event: ReactPointerEvent<HTMLButtonElement>) {
+  const button = event.currentTarget
+  const state = getBookCoverParallaxState(button)
+
+  state.targetRotateX = 0
+  state.targetRotateY = 0
+  state.targetShiftX = 0
+  state.targetShiftY = 0
+
+  if (prefersReducedMotion()) {
+    state.currentRotateX = 0
+    state.currentRotateY = 0
+    state.currentShiftX = 0
+    state.currentShiftY = 0
+    syncBookCoverParallax(button, state)
+    return
+  }
+
+  queueBookCoverParallax(button)
 }
 
 export function LibraryView({
@@ -275,18 +432,23 @@ export function LibraryView({
                     type="button"
                     className="book-card-open"
                     onClick={() => onOpen(book.id)}
+                    onPointerMove={updateBookCoverParallax}
+                    onPointerLeave={resetBookCoverParallax}
+                    onPointerCancel={resetBookCoverParallax}
                   >
-                    {book.coverUrl ? (
-                      <img
-                        src={book.coverUrl}
-                        alt={`Cover for ${book.title}`}
-                        className="book-cover"
-                      />
-                    ) : (
-                      <div className="book-cover book-cover-fallback">
-                        <span>{book.title.slice(0, 1).toUpperCase()}</span>
-                      </div>
-                    )}
+                    <span className="book-cover-frame">
+                      {book.coverUrl ? (
+                        <img
+                          src={book.coverUrl}
+                          alt={`Cover for ${book.title}`}
+                          className="book-cover"
+                        />
+                      ) : (
+                        <div className="book-cover book-cover-fallback">
+                          <span>{book.title.slice(0, 1).toUpperCase()}</span>
+                        </div>
+                      )}
+                    </span>
                   </button>
 
                   <div className="book-card-body">
