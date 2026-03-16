@@ -25,6 +25,19 @@ const ReaderView = lazy(async () => {
   return { default: module.ReaderView }
 })
 
+const MOBILE_MEDIA_QUERIES = [
+  '(max-width: 720px)',
+  '((pointer: coarse) and (max-width: 1100px))',
+]
+
+function isMobileOnlyViewport() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return MOBILE_MEDIA_QUERIES.some((query) => window.matchMedia(query).matches)
+}
+
 function findExistingBook(books: BookRecord[], file: File, identifier?: string) {
   return books.find((book) => {
     if (identifier && book.identifier === identifier) {
@@ -79,6 +92,7 @@ function App() {
   const [activeFile, setActiveFile] = useState<Blob | null>(null)
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [isMobileLocked, setIsMobileLocked] = useState(() => isMobileOnlyViewport())
 
   const activeBook = activeBookId
     ? books.find((book) => book.id === activeBookId) ?? null
@@ -121,6 +135,23 @@ function App() {
       setActiveFile(null)
     }
   }, [activeBookId, books])
+
+  useEffect(() => {
+    const mediaQueries = MOBILE_MEDIA_QUERIES.map((query) => window.matchMedia(query))
+
+    const syncViewportState = () => {
+      setIsMobileLocked(mediaQueries.some((query) => query.matches))
+    }
+
+    syncViewportState()
+    mediaQueries.forEach((query) => query.addEventListener('change', syncViewportState))
+
+    return () => {
+      mediaQueries.forEach((query) =>
+        query.removeEventListener('change', syncViewportState),
+      )
+    }
+  }, [])
 
   const handleImport = async (files: File[]) => {
     if (!files.length) {
@@ -230,7 +261,17 @@ function App() {
 
   return (
     <div className="app-shell">
-      {activeBook ? (
+      {isMobileLocked ? (
+        <main className="desktop-only-screen">
+          <section className="desktop-only-card">
+            <p className="eyebrow">Desktop Only</p>
+            <h1>Margin Reader is made for desktop reading.</h1>
+            <p className="desktop-only-copy">
+              Open this on a laptop or desktop for the full reading experience.
+            </p>
+          </section>
+        </main>
+      ) : activeBook ? (
         <Suspense fallback={<div className="reader-loading-screen">Loading reader...</div>}>
           <ReaderView
             book={activeBook}
