@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import './App.css'
 import { LibraryView } from './components/LibraryView'
-import { recordReadingAnalytics } from './lib/stats'
+import { recordReadingAnalytics, recordTimedReadingAnalytics } from './lib/stats'
 import {
   deleteBookFile,
   loadBookFile,
@@ -208,10 +208,24 @@ function App() {
     )
   }
 
-  const recordReadingActivity = (activity: { minutes?: number; pages?: number }) => {
-    setAnalytics((currentAnalytics) =>
-      recordReadingAnalytics(currentAnalytics, activity),
-    )
+  const recordReadingActivity = (activity: {
+    minutes?: number
+    pages?: number
+    date?: Date
+    startedAt?: Date
+    endedAt?: Date
+  }) => {
+    setAnalytics((currentAnalytics) => {
+      if (activity.startedAt && activity.endedAt) {
+        return recordTimedReadingAnalytics(
+          currentAnalytics,
+          activity.startedAt,
+          activity.endedAt,
+        )
+      }
+
+      return recordReadingAnalytics(currentAnalytics, activity)
+    })
   }
 
   return (

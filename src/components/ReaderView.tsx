@@ -30,7 +30,13 @@ interface ReaderViewProps {
   file: Blob | null
   settings: ReaderSettings
   onClose: () => void
-  onRecordActivity: (activity: { minutes?: number; pages?: number }) => void
+  onRecordActivity: (activity: {
+    minutes?: number
+    pages?: number
+    date?: Date
+    startedAt?: Date
+    endedAt?: Date
+  }) => void
   onUpdateBook: (
     bookId: string,
     updater: (currentBook: BookRecord) => BookRecord,
@@ -263,6 +269,7 @@ export function ReaderView({
   const appliedHighlightsRef = useRef<HighlightEntry[]>([])
   const selectedContentsRef = useRef<Contents | null>(null)
   const lastLocationRef = useRef<number | null>(null)
+  const readingSessionStartedAtRef = useRef<number | null>(null)
   const bookSnapshotRef = useRef({
     currentCfi: book.currentCfi,
     locations: book.locations,
@@ -329,7 +336,7 @@ export function ReaderView({
     if (previousPageLocation !== null && nextPageLocation !== null) {
       const delta = nextPageLocation - previousPageLocation
 
-      if (delta > 0) {
+      if (delta > 0 && delta <= 12) {
         recordActivity({ pages: delta })
       }
     }
@@ -354,6 +361,21 @@ export function ReaderView({
 
   const recordActivity = useEffectEvent((activity: { minutes?: number; pages?: number }) => {
     onRecordActivity(activity)
+  })
+
+  const flushReadingTime = useEffectEvent((endedAt = Date.now()) => {
+    const startedAt = readingSessionStartedAtRef.current
+
+    if (startedAt === null || endedAt <= startedAt) {
+      readingSessionStartedAtRef.current = endedAt
+      return
+    }
+
+    onRecordActivity({
+      startedAt: new Date(startedAt),
+      endedAt: new Date(endedAt),
+    })
+    readingSessionStartedAtRef.current = endedAt
   })
 
   const persistBookUpdate = useEffectEvent(
@@ -673,7 +695,22 @@ export function ReaderView({
 
   useEffect(() => {
     if (isLoading || loadError) {
+      readingSessionStartedAtRef.current = null
       return
+    }
+
+    if (document.visibilityState === 'visible') {
+      readingSessionStartedAtRef.current = Date.now()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushReadingTime()
+        readingSessionStartedAtRef.current = null
+        return
+      }
+
+      readingSessionStartedAtRef.current = Date.now()
     }
 
     const intervalId = window.setInterval(() => {
@@ -681,11 +718,19 @@ export function ReaderView({
         return
       }
 
-      recordActivity({ minutes: 1 })
-    }, 60_000)
+      flushReadingTime()
+    }, 30_000)
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
+      if (document.visibilityState === 'visible') {
+        flushReadingTime()
+      }
+
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.clearInterval(intervalId)
+      readingSessionStartedAtRef.current = null
     }
   }, [book.id, isLoading, loadError])
 

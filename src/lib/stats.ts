@@ -5,7 +5,11 @@ export function createEmptyAnalytics(): ReadingAnalytics {
 }
 
 export function getDateKey(value = new Date()) {
-  return value.toISOString().slice(0, 10)
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
 }
 
 export function recordReadingAnalytics(
@@ -28,6 +32,36 @@ export function recordReadingAnalytics(
       },
     },
   }
+}
+
+export function recordTimedReadingAnalytics(
+  analytics: ReadingAnalytics,
+  startedAt: Date,
+  endedAt: Date,
+) {
+  if (endedAt <= startedAt) {
+    return analytics
+  }
+
+  let currentAnalytics = analytics
+  let cursor = new Date(startedAt)
+
+  while (cursor < endedAt) {
+    const nextBoundary = new Date(cursor)
+    nextBoundary.setHours(24, 0, 0, 0)
+
+    const segmentEnd = nextBoundary < endedAt ? nextBoundary : endedAt
+    const minutes = (segmentEnd.getTime() - cursor.getTime()) / 60_000
+
+    currentAnalytics = recordReadingAnalytics(currentAnalytics, {
+      minutes,
+      date: cursor,
+    })
+
+    cursor = segmentEnd
+  }
+
+  return currentAnalytics
 }
 
 export function getCurrentStreak(analytics: ReadingAnalytics) {
@@ -61,12 +95,14 @@ export function getTotalMinutesRead(analytics: ReadingAnalytics) {
 }
 
 export function formatMinutesCompact(minutes: number) {
-  if (minutes < 60) {
-    return `${minutes}m`
+  const roundedMinutes = Math.max(0, Math.round(minutes))
+
+  if (roundedMinutes < 60) {
+    return `${roundedMinutes}m`
   }
 
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
+  const hours = Math.floor(roundedMinutes / 60)
+  const remainingMinutes = roundedMinutes % 60
 
   if (!remainingMinutes) {
     return `${hours}h`
