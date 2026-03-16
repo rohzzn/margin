@@ -4,10 +4,12 @@ import { LibraryView } from './components/LibraryView'
 import { recordReadingAnalytics, recordTimedReadingAnalytics } from './lib/stats'
 import {
   deleteBookFile,
+  hasSeededDefaultBooks,
   loadBookFile,
   loadLibrary,
   loadReadingAnalytics,
   loadReaderSettings,
+  markDefaultBooksSeeded,
   saveBookFile,
   saveReadingAnalytics,
   saveLibrary,
@@ -29,6 +31,33 @@ const MOBILE_MEDIA_QUERIES = [
   '(max-width: 720px)',
   '((pointer: coarse) and (max-width: 1100px))',
 ]
+
+const DEFAULT_BOOK_SOURCES = [
+  {
+    id: 'default-pride-and-prejudice',
+    title: 'Pride and Prejudice',
+    author: 'Jane Austen',
+    identifier: 'https://www.gutenberg.org/ebooks/1342',
+    fileName: 'pride-and-prejudice.epub',
+    url: '/default-books/pride-and-prejudice.epub',
+  },
+  {
+    id: 'default-dracula',
+    title: 'Dracula',
+    author: 'Bram Stoker',
+    identifier: 'https://www.gutenberg.org/ebooks/345',
+    fileName: 'dracula.epub',
+    url: '/default-books/dracula.epub',
+  },
+  {
+    id: 'default-alice-in-wonderland',
+    title: "Alice's Adventures in Wonderland",
+    author: 'Lewis Carroll',
+    identifier: 'https://www.gutenberg.org/ebooks/11',
+    fileName: 'alice-in-wonderland.epub',
+    url: '/default-books/alice-in-wonderland.epub',
+  },
+] as const
 
 function isMobileOnlyViewport() {
   if (typeof window === 'undefined') {
@@ -93,6 +122,7 @@ function App() {
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isMobileLocked, setIsMobileLocked] = useState(() => isMobileOnlyViewport())
+  const [isSeedingDefaults, setIsSeedingDefaults] = useState(false)
 
   const activeBook = activeBookId
     ? books.find((book) => book.id === activeBookId) ?? null
@@ -152,6 +182,83 @@ function App() {
       )
     }
   }, [])
+
+  useEffect(() => {
+    if (books.length || hasSeededDefaultBooks()) {
+      return
+    }
+
+    let cancelled = false
+
+    const seedDefaultBooks = async () => {
+      setIsSeedingDefaults(true)
+
+      try {
+        const { readEpubMetadata } = await import('./lib/epub')
+        const seededBooks: BookRecord[] = []
+        const seededAt = Date.now()
+
+        for (const [index, source] of DEFAULT_BOOK_SOURCES.entries()) {
+          const response = await fetch(source.url)
+
+          if (!response.ok) {
+            continue
+          }
+
+          const blob = await response.blob()
+          const file = new File([blob], source.fileName, {
+            type: 'application/epub+zip',
+          })
+
+          const metadata = await readEpubMetadata(file).catch<ImportedBookMetadata>(() => ({
+            title: source.title,
+            author: source.author,
+            identifier: source.identifier,
+          }))
+
+          if (cancelled) {
+            return
+          }
+
+          await saveBookFile(source.id, file)
+
+          seededBooks.push({
+            id: source.id,
+            title: metadata.title || source.title,
+            author: metadata.author || source.author,
+            description: metadata.description,
+            coverUrl: metadata.coverUrl,
+            language: metadata.language,
+            identifier: metadata.identifier || source.identifier,
+            fileName: source.fileName,
+            fileSize: file.size,
+            addedAt: new Date(seededAt - index * 60_000).toISOString(),
+            lastOpenedAt: new Date(seededAt - index * 60_000).toISOString(),
+            progress: 0,
+            bookmarks: [],
+            highlights: [],
+          })
+        }
+
+        if (cancelled || !seededBooks.length) {
+          return
+        }
+
+        setBooks((currentBooks) => (currentBooks.length ? currentBooks : seededBooks))
+        markDefaultBooksSeeded()
+      } finally {
+        if (!cancelled) {
+          setIsSeedingDefaults(false)
+        }
+      }
+    }
+
+    void seedDefaultBooks()
+
+    return () => {
+      cancelled = true
+    }
+  }, [books.length])
 
   const handleImport = async (files: File[]) => {
     if (!files.length) {
@@ -271,6 +378,8 @@ function App() {
             </p>
           </section>
         </main>
+      ) : isSeedingDefaults && !books.length ? (
+        <div className="reader-loading-screen">Preparing your starter shelf...</div>
       ) : activeBook ? (
         <Suspense fallback={<div className="reader-loading-screen">Loading reader...</div>}>
           <ReaderView
@@ -287,7 +396,7 @@ function App() {
         <LibraryView
           books={books}
           analytics={analytics}
-          isImporting={isImporting}
+          isImporting={isImporting || isSeedingDefaults}
           importError={importError}
           onImport={handleImport}
           onOpen={setActiveBookId}
