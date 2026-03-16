@@ -624,13 +624,21 @@ export function ReaderView({
       return
     }
 
-    if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+    if (
+      event.key === 'ArrowRight' ||
+      event.key === 'PageDown' ||
+      event.key.toLowerCase() === 'd'
+    ) {
       event.preventDefault()
       void renditionRef.current?.next()
       return
     }
 
-    if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+    if (
+      event.key === 'ArrowLeft' ||
+      event.key === 'PageUp' ||
+      event.key.toLowerCase() === 'a'
+    ) {
       event.preventDefault()
       void renditionRef.current?.prev()
       return
@@ -638,11 +646,7 @@ export function ReaderView({
 
     if (event.key === ' ') {
       event.preventDefault()
-      if (event.shiftKey) {
-        void renditionRef.current?.prev()
-      } else {
-        void renditionRef.current?.next()
-      }
+      void renditionRef.current?.next()
       return
     }
 
@@ -1178,7 +1182,7 @@ export function ReaderView({
                   <input
                     type="range"
                     min={85}
-                    max={140}
+                    max={180}
                     step={5}
                     value={settings.fontScale}
                     onChange={(event) =>
